@@ -16,6 +16,50 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
+// 봇이 속한 채팅 ID (환경 변수에서 가져오거나 하드코딩)
+const BOT_CHAT_ID = process.env.BOT_CHAT_ID;
+
+// 마지막으로 확인한 예약 ID를 저장할 변수
+let lastCheckedId = 0;
+
+// 새로운 예약 확인 및 알림 전송
+async function checkNewReservations() {
+  try {
+    const query = `
+      SELECT * FROM booking_data 
+      WHERE id > $1
+      ORDER BY id ASC
+    `;
+    const { rows } = await pool.query(query, [lastCheckedId]);
+
+    if (rows.length > 0) {
+      // 새로운 예약이 있을 경우
+      rows.forEach((reservation) => {
+        let message = `📅 새로운 예약이 등록되었습니다!\n\n`;
+        message += `🆕 플랫폼: ${reservation.platform}\n`;
+        message += `🏠 숙소: ${reservation.accommodation_name}\n`;
+        message += `🔑 객실: ${reservation.room_name}\n`;
+        message += `👤 게스트: ${reservation.guest_name}\n`;
+        message += `📞 연락처: ${reservation.guest_phone}\n`;
+        message += `🕒 체크인: ${reservation.check_in_date} ${reservation.check_in_time}\n`;
+        message += `🕒 체크아웃: ${reservation.check_out_date} ${reservation.check_out_time}\n`;
+        message += `💰 결제금액: ${reservation.final_price}원\n`;
+        if (reservation.request) {
+          message += `💬 요청사항: ${reservation.request}\n`;
+        }
+
+        // 봇이 속한 채팅으로 메시지 전송
+        bot.sendMessage(BOT_CHAT_ID, message);
+      });
+
+      // 마지막으로 확인한 ID 업데이트
+      lastCheckedId = rows[rows.length - 1].id;
+    }
+  } catch (error) {
+    console.error("새 예약 확인 중 오류 발생:", error);
+  }
+}
+
 // 사용자 인증 함수 (예시)
 async function authenticateUser(chatId) {
   // 실제 구현에서는 데이터베이스에서 사용자 권한을 확인해야 합니다.
@@ -24,6 +68,7 @@ async function authenticateUser(chatId) {
 
 // 오늘의 예약 정보 조회 및 전송
 async function sendTodayReservations(chatId) {
+
   if (!await authenticateUser(chatId)) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -168,20 +213,23 @@ bot.onText(/\/search (.+)/, (msg, match) => {
 
 // 매일 아침 8시에 자동으로 예약 정보 전송
 cron.schedule('0 8 * * *', () => {
-  // 실제 구현에서는 등록된 모든 채팅 ID에 대해 반복해야 합니다.
-  const registeredChatIds = [/* 등록된 채팅 ID 목록 */];
-  registeredChatIds.forEach(chatId => {
-    sendTodayReservations(chatId);
-  });
+  sendTodayReservations(BOT_CHAT_ID);
+});
+
+// 5분마다 새로운 예약 확인
+cron.schedule('*/5 * * * *', () => {
+  checkNewReservations();
 });
 
 console.log('Telegram 펜션 예약 관리 봇이 실행되었습니다.');
 
-// 데이터베이스 연결 테스트
-pool.query("SELECT NOW()", (err, res) => {
+// 데이터베이스 연결 테스트 및 초기 lastCheckedId 설정
+pool.query("SELECT MAX(id) as max_id FROM booking_data", (err, res) => {
   if (err) {
     console.error("데이터베이스 연결 실패:", err);
   } else {
     console.log("데이터베이스에 성공적으로 연결되었습니다.");
+    lastCheckedId = res.rows[0].max_id || 0;
+    console.log(`마지막으로 확인한 예약 ID: ${lastCheckedId}`);
   }
 });
