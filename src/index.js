@@ -1,11 +1,22 @@
 // telegram-pension-bot.js
-const TelegramBot = require('node-telegram-bot-api');
-const { Pool } = require('pg');
-const cron = require('node-cron');
-require('dotenv').config();
+process.env.NTBA_FIX_319 = 1;
+
+const TelegramBot = require("node-telegram-bot-api");
+const { Pool } = require("pg");
+const cron = require("node-cron");
+const https = require("https");
+require("dotenv").config();
 
 // Telegram Bot 초기화
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
+  polling: true,
+  request: {
+    agentOptions: {
+      keepAlive: true,
+      family: 4,
+    },
+  },
+});
 
 // PostgreSQL 연결 설정
 const pool = new Pool({
@@ -19,44 +30,69 @@ const pool = new Pool({
 // 봇이 속한 채팅 ID (환경 변수에서 가져오거나 하드코딩)
 const BOT_CHAT_ID = process.env.BOT_CHAT_ID;
 
-// 마지막으로 확인한 예약 ID를 저장할 변수
-let lastCheckedId = 0;
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 메시지 전송 함수 (재시도 로직 포함)
+async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await bot.sendMessage(chatId, message);
+      console.log("메시지 전송 성공!");
+      return;
+    } catch (error) {
+      console.error(`메시지 전송 시도 ${i + 1}/${maxRetries} 실패:`, error);
+      if (i === maxRetries - 1) {
+        throw error;
+      }
+      await delay(5000 * (i + 1)); // 5초, 10초, 15초, ...
+    }
+  }
+}
 
 // 새로운 예약 확인 및 알림 전송
 async function checkNewReservations() {
   try {
     const query = `
-      SELECT * FROM booking_data 
-      WHERE id > $1
+      SELECT * FROM booking_data
       ORDER BY id ASC
     `;
-    const { rows } = await pool.query(query, [lastCheckedId]);
+    const { rows } = await pool.query(query);
 
     if (rows.length > 0) {
-      // 새로운 예약이 있을 경우
-      rows.forEach((reservation) => {
+      for (const reservation of rows) {
         let message = `📅 새로운 예약이 등록되었습니다!\n\n`;
         message += `🆕 플랫폼: ${reservation.platform}\n`;
-        message += `🏠 숙소: ${reservation.accommodation_name}\n`;
-        message += `🔑 객실: ${reservation.room_name}\n`;
-        message += `👤 게스트: ${reservation.guest_name}\n`;
-        message += `📞 연락처: ${reservation.guest_phone}\n`;
-        message += `🕒 체크인: ${reservation.check_in_date} ${reservation.check_in_time}\n`;
-        message += `🕒 체크아웃: ${reservation.check_out_date} ${reservation.check_out_time}\n`;
-        message += `💰 결제금액: ${reservation.final_price}원\n`;
+        message += `🏠 숙소: ${reservation.accommodation_name || ""}\n`;
+        message += `🔑 객실: ${reservation.test_room_name || ""}\n`;
+        message += `👤 게스트: ${reservation.test_guest_name}\n`;
+        message += `📞 연락처: ${reservation.guest_phone || ""}\n`;
+        message += `🕒 체크인: ${reservation.test_check_in_date} ${
+          reservation.check_in_time || ""
+        }\n`;
+        message += `🕒 체크아웃: ${reservation.test_check_out_date} ${
+          reservation.check_out_time || ""
+        }\n`;
+        message += `💰 결제금액: ${Number(reservation.total_price).toLocaleString()}원\n`;
         if (reservation.request) {
           message += `💬 요청사항: ${reservation.request}\n`;
         }
 
-        // 봇이 속한 채팅으로 메시지 전송
-        bot.sendMessage(BOT_CHAT_ID, message);
-      });
-
-      // 마지막으로 확인한 ID 업데이트
-      lastCheckedId = rows[rows.length - 1].id;
+        console.log(message);
+        await sendMessageWithRetry(BOT_CHAT_ID, message);
+        await delay(10000);
+      }
     }
   } catch (error) {
     console.error("새 예약 확인 중 오류 발생:", error);
+    // 에러 발생 시 관리자에게 알림
+    try {
+      await sendMessageWithRetry(
+        BOT_CHAT_ID,
+        `⚠️ 예약 확인 중 오류가 발생했습니다: ${error.message}`
+      );
+    } catch (sendError) {
+      console.error("에러 알림 전송 실패:", sendError);
+    }
   }
 }
 
@@ -68,16 +104,15 @@ async function authenticateUser(chatId) {
 
 // 오늘의 예약 정보 조회 및 전송
 async function sendTodayReservations(chatId) {
-
-  if (!await authenticateUser(chatId)) {
+  if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
   }
 
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     const query = `
-      SELECT * FROM booking_data 
+      SELECT * FROM booking_data
       WHERE check_in_date::date = $1::date
       ORDER BY platform, check_in_time
     `;
@@ -100,7 +135,7 @@ async function sendTodayReservations(chatId) {
       if (reservation.request) {
         message += `   💬 요청사항: ${reservation.request}\n`;
       }
-      message += '\n';
+      message += "\n";
     });
 
     bot.sendMessage(chatId, message);
@@ -112,17 +147,17 @@ async function sendTodayReservations(chatId) {
 
 // 플랫폼별 예약 통계 조회
 async function sendReservationStats(chatId) {
-  if (!await authenticateUser(chatId)) {
+  if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
   }
 
   try {
     const query = `
-      SELECT platform, 
+      SELECT platform,
              COUNT(*) as total_reservations,
              SUM(final_price) as total_revenue
-      FROM booking_data 
+      FROM booking_data
       WHERE check_in_date::date >= CURRENT_DATE
       GROUP BY platform
       ORDER BY total_reservations DESC
@@ -150,14 +185,14 @@ async function sendReservationStats(chatId) {
 
 // 예약 검색 기능
 async function searchReservation(chatId, searchTerm) {
-  if (!await authenticateUser(chatId)) {
+  if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
   }
 
   try {
     const query = `
-      SELECT * FROM booking_data 
+      SELECT * FROM booking_data
       WHERE guest_name ILIKE $1 OR reservation_number ILIKE $1 OR guest_phone ILIKE $1
       ORDER BY check_in_date DESC
       LIMIT 5
@@ -186,13 +221,19 @@ async function searchReservation(chatId, searchTerm) {
   }
 }
 
+bot.on("polling_error", (msg) => console.log(msg));
+
 // 봇 명령어 처리
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "펜션 예약 관리 봇입니다. 다음 명령어를 사용할 수 있습니다:\n\n" +
-    "/today - 오늘의 예약 정보 조회\n" +
-    "/stats - 플랫폼별 예약 통계 조회\n" +
-    "/search [검색어] - 예약 검색 (이름, 예약번호, 전화번호)");
+  console.log(`Received message from chat ID: ${chatId}`);
+  bot.sendMessage(
+    chatId,
+    "펜션 예약 관리 봇입니다. 다음 명령어를 사용할 수 있습니다:\n\n" +
+      "/today - 오늘의 예약 정보 조회\n" +
+      "/stats - 플랫폼별 예약 통계 조회\n" +
+      "/search [검색어] - 예약 검색 (이름, 예약번호, 전화번호)"
+  );
 });
 
 bot.onText(/\/today/, (msg) => {
@@ -212,24 +253,42 @@ bot.onText(/\/search (.+)/, (msg, match) => {
 });
 
 // 매일 아침 8시에 자동으로 예약 정보 전송
-cron.schedule('0 8 * * *', () => {
+cron.schedule("0 8 * * *", () => {
   sendTodayReservations(BOT_CHAT_ID);
 });
 
 // 5분마다 새로운 예약 확인
-cron.schedule('*/5 * * * *', () => {
+cron.schedule("*/1 * * * *", () => {
   checkNewReservations();
 });
 
-console.log('Telegram 펜션 예약 관리 봇이 실행되었습니다.');
+// 새 메시지 수신 및 콘솔 출력
+bot.on("message", (msg) => {
+  const chatId = msg.chat.id;
+  const messageText = msg.text;
+  const sender = msg.from.username || msg.from.first_name || "Unknown";
 
-// 데이터베이스 연결 테스트 및 초기 lastCheckedId 설정
-pool.query("SELECT MAX(id) as max_id FROM booking_data", (err, res) => {
+  console.log(`새 메시지 수신 - 채팅 ID: ${chatId}`);
+  console.log(`보낸 사람: ${sender}`);
+  console.log(`메시지 내용: ${messageText}`);
+  console.log("---");
+});
+
+// 에러 처리를 위한 전역 핸들러
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+console.log("Telegram 펜션 예약 관리 봇이 실행되었습니다.");
+
+// 데이터베이스 연결 테스트
+pool.query("SELECT NOW()", (err, res) => {
   if (err) {
     console.error("데이터베이스 연결 실패:", err);
   } else {
     console.log("데이터베이스에 성공적으로 연결되었습니다.");
-    lastCheckedId = res.rows[0].max_id || 0;
-    console.log(`마지막으로 확인한 예약 ID: ${lastCheckedId}`);
   }
 });
+
+// 초기 예약 확인
+checkNewReservations();
