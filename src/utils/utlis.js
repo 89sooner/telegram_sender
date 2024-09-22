@@ -1,6 +1,6 @@
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
+async function sendMessageWithRetry(bot, chatId, message, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       await bot.sendMessage(chatId, message);

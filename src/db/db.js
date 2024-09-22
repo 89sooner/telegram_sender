@@ -68,7 +68,7 @@ async function checkNewReservations() {
         }
 
         console.log(message);
-        await sendMessageWithRetry(BOT_CHAT_ID, message);
+        await sendMessageWithRetry(bot, BOT_CHAT_ID, message);
         await delay(30000);
 
         // 메시지 발송 후 message_sent 필드 업데이트
@@ -85,6 +85,7 @@ async function checkNewReservations() {
     // 에러 발생 시 관리자에게 알림
     try {
       await sendMessageWithRetry(
+        bot,
         BOT_CHAT_ID,
         `⚠️ 예약 확인 중 오류가 발생했습니다: ${error.message}`
       );
