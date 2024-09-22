@@ -2,12 +2,18 @@
   "name": "telegram_sender",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js"
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
   },
-  "keywords": [],
+  "keywords": [
+    "telegram",
+    "bot",
+    "pension",
+    "reservation"
+  ],
   "author": "89sooner",
   "license": "ISC",
   "dependencies": {
@@ -15,6 +21,9 @@
     "node-cron": "^3.0.3",
     "node-telegram-bot-api": "^0.66.0",
     "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
   },
   "engines": {
     "node": ">=20.12.0",
