@@ -266,20 +266,38 @@ bot.onText(/\/start/, (msg) => {
   );
 });
 
-bot.onText(/\/today/, (msg) => {
+// 오늘의 예약 정보 조회
+bot.onText(/\/today/, async (msg) => {
   const chatId = msg.chat.id;
-  sendTodayReservations(chatId);
+  try {
+    await sendTodayReservations(chatId);
+  } catch (error) {
+    console.error("오늘의 예약 정보 조회 중 오류 발생:", error);
+    bot.sendMessage(chatId, "오늘의 예약 정보를 가져오는 중 오류가 발생했습니다.");
+  }
 });
 
-bot.onText(/\/stats/, (msg) => {
+// 플랫폼별 예약 통계 조회
+bot.onText(/\/stats/, async (msg) => {
   const chatId = msg.chat.id;
-  sendReservationStats(chatId);
+  try {
+    await sendReservationStats(chatId);
+  } catch (error) {
+    console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
+    bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
+  }
 });
 
-bot.onText(/\/search (.+)/, (msg, match) => {
+// 예약 검색
+bot.onText(/\/search (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const searchTerm = match[1];
-  searchReservation(chatId, searchTerm);
+  try {
+    await searchReservation(chatId, searchTerm);
+  } catch (error) {
+    console.error("예약 검색 중 오류 발생:", error);
+    bot.sendMessage(chatId, "예약을 검색하는 중 오류가 발생했습니다.");
+  }
 });
 
 // 매일 아침 8시에 자동으로 예약 정보 전송
@@ -287,7 +305,7 @@ cron.schedule("0 8 * * *", () => {
   sendTodayReservations(BOT_CHAT_ID);
 });
 
-// 5분마다 새로운 예약 확인
+// 1분마다 새로운 예약 확인
 cron.schedule("*/1 * * * *", () => {
   checkNewReservations();
 });
