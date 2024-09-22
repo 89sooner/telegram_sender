@@ -17,7 +17,7 @@ async function handleTodayCommand(bot, chatId) {
 
 async function handleStatsCommand(bot, chatId) {
   try {
-    await sendReservationStats(chatId);
+    await sendReservationStats(bot, chatId);
   } catch (error) {
     console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
     bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
