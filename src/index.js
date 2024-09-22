@@ -66,6 +66,9 @@ async function checkNewReservations() {
           case "예약확정":
             statusMessage = "📅 새로운 예약이 확정되었습니다!";
             break;
+          case "예약완료":
+            statusMessage = "📅 새로운 예약이 완료되었습니다!";
+            break;
           case "예약취소":
             statusMessage = "❌ 예약이 취소되었습니다.";
             break;
