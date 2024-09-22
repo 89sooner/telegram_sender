@@ -6,7 +6,7 @@ const {
 } = require("../db/db");
 const { BOT_CHAT_ID } = require("../../config/config");
 
-async function handleTodayCommand(chatId) {
+async function handleTodayCommand(bot, chatId) {
   try {
     await sendTodayReservations(chatId);
   } catch (error) {
@@ -15,7 +15,7 @@ async function handleTodayCommand(chatId) {
   }
 }
 
-async function handleStatsCommand(chatId) {
+async function handleStatsCommand(bot, chatId) {
   try {
     await sendReservationStats(chatId);
   } catch (error) {
@@ -24,25 +24,25 @@ async function handleStatsCommand(chatId) {
   }
 }
 
-async function handleStatsPeriodCommand(chatId, period) {
+async function handleStatsPeriodCommand(bot, chatId, period) {
   try {
-    await sendReservationStatsByPeriod(chatId, period);
+    await sendReservationStatsByPeriod(bot, chatId, period);
   } catch (error) {
     console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
     bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
   }
 }
 
-async function handleSearchCommand(chatId, searchOptions) {
+async function handleSearchCommand(bot, chatId, searchOptions) {
   try {
-    await searchReservation(chatId, searchOptions);
+    await searchReservation(bot, chatId, searchOptions);
   } catch (error) {
     console.error("예약 검색 중 오류 발생:", error);
     bot.sendMessage(chatId, "예약을 검색하는 중 오류가 발생했습니다.");
   }
 }
 
-function handleHelpCommand(chatId) {
+function handleHelpCommand(bot, chatId) {
   const helpMessage = `
 펜션 예약 관리 봇 도움말
 

@@ -18,7 +18,7 @@ const pool = new Pool({
 });
 
 // 새로운 예약 확인 및 알림 전송
-async function checkNewReservations() {
+async function checkNewReservations(bot) {
   try {
     const query = `
       SELECT * FROM booking_data
@@ -96,7 +96,7 @@ async function checkNewReservations() {
 }
 
 // 오늘의 예약 정보 조회 및 전송
-async function sendTodayReservations(chatId) {
+async function sendTodayReservations(bot, chatId) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -142,7 +142,7 @@ async function sendTodayReservations(chatId) {
 }
 
 // 플랫폼별 예약 통계 조회 로직 (기간 미지정)
-async function sendReservationStats(chatId) {
+async function sendReservationStats(bot, chatId) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -184,7 +184,7 @@ async function sendReservationStats(chatId) {
 }
 
 // 플랫폼별 예약 통계 조회 (기간 지정)
-async function sendReservationStatsByPeriod(chatId, period) {
+async function sendReservationStatsByPeriod(bot, chatId, period) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -245,7 +245,7 @@ async function sendReservationStatsByPeriod(chatId, period) {
 }
 
 // 예약 검색 기능
-async function searchReservation(chatId, searchOptions) {
+async function searchReservation(bot, chatId, searchOptions) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;

@@ -31,29 +31,29 @@ bot.onText(/\/start/, (msg) => {
 
 bot.onText(/\/today/, async (msg) => {
   const chatId = msg.chat.id;
-  await handleTodayCommand(chatId);
+  await handleTodayCommand(bot, chatId);
 });
 
 bot.onText(/\/stats/, async (msg) => {
   const chatId = msg.chat.id;
-  await handleStatsCommand(chatId);
+  await handleStatsCommand(bot, chatId);
 });
 
 bot.onText(/\/stats (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const period = match[1];
-  await handleStatsPeriodCommand(chatId, period);
+  await handleStatsPeriodCommand(bot, chatId, period);
 });
 
 bot.onText(/\/search/, async (msg) => {
   const chatId = msg.chat.id;
   const searchOptions = parseSearchOptions(msg.text);
-  await handleSearchCommand(chatId, searchOptions);
+  await handleSearchCommand(bot, hatId, searchOptions);
 });
 
 bot.onText(/\/help/, (msg) => {
   const chatId = msg.chat.id;
-  handleHelpCommand(chatId);
+  handleHelpCommand(bot, chatId);
 });
 
 function parseSearchOptions(text) {
@@ -71,11 +71,11 @@ function parseSearchOptions(text) {
 }
 
 cron.schedule("0 8 * * *", () => {
-  handleTodayCommand(BOT_CHAT_ID);
+  handleTodayCommand(bot, BOT_CHAT_ID);
 });
 
 cron.schedule("*/1 * * * *", () => {
-  checkNewReservations();
+  checkNewReservations(bot);
 });
 
 bot.on("message", (msg) => {
