@@ -44,7 +44,7 @@ async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
       if (i === maxRetries - 1) {
         throw error;
       }
-      await delay(5000 * (i + 1)); // 5초, 10초, 15초, ...
+      await delay(10000 * (i + 1)); // 5초, 10초, 15초, ...
     }
   }
 }
@@ -79,7 +79,7 @@ async function checkNewReservations() {
 
         console.log(message);
         await sendMessageWithRetry(BOT_CHAT_ID, message);
-        await delay(10000);
+        await delay(30000);
       }
     }
   } catch (error) {
