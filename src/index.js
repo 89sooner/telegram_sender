@@ -189,7 +189,9 @@ async function sendReservationStats(chatId) {
       SELECT platform,
              COUNT(*) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as confirmed_reservations,
              COUNT(*) FILTER (WHERE reservation_status = '예약취소') as canceled_reservations,
-             SUM(total_price) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as total_revenue
+             COALESCE(SUM(CASE WHEN reservation_status IN ('예약확정', '예약완료') THEN total_price
+                               WHEN reservation_status = '예약취소' THEN -total_price
+                               ELSE 0 END), 0) as total_revenue
       FROM booking_data
       GROUP BY platform
       ORDER BY confirmed_reservations DESC
@@ -247,7 +249,9 @@ async function sendReservationStatsByPeriod(chatId, period) {
       SELECT platform,
              COUNT(*) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as confirmed_reservations,
              COUNT(*) FILTER (WHERE reservation_status = '예약취소') as canceled_reservations,
-             SUM(total_price) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as total_revenue
+             COALESCE(SUM(CASE WHEN reservation_status IN ('예약확정', '예약완료') THEN total_price
+                               WHEN reservation_status = '예약취소' THEN -total_price
+                               ELSE 0 END), 0) as total_revenue
       FROM booking_data
       WHERE DATE(created_at) BETWEEN $1 AND $2
       GROUP BY platform
