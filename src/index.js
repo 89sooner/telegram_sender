@@ -156,6 +156,7 @@ async function sendTodayReservations(chatId) {
     let message = "📅 오늘의 예약 정보:\n\n";
     rows.forEach((reservation, index) => {
       message += `${index + 1}. ${reservation.platform} 예약\n`;
+      message += `   ✔️예약상태: ${reservation.reservation_status || ""}\n`;
       message += `   🏠 숙소: ${reservation.accommodation_name || ""}\n`;
       message += `   🔑 객실: ${reservation.test_room_name || ""}\n`;
       message += `   👤 게스트: ${reservation.test_guest_name}\n`;
@@ -280,21 +281,45 @@ async function sendReservationStatsByPeriod(chatId, period) {
   }
 }
 
-// 예약 검색 기능 (수정사항 없음)
-async function searchReservation(chatId, searchTerm) {
+// 예약 검색 기능
+async function searchReservation(chatId, searchOptions) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
   }
 
   try {
-    const query = `
+    let query = `
       SELECT * FROM booking_data
-      WHERE test_guest_name ILIKE $1 OR reservation_number ILIKE $1 OR guest_phone ILIKE $1
-      ORDER BY test_check_in_date DESC
-      LIMIT 5
+      WHERE 1=1
     `;
-    const { rows } = await pool.query(query, [`%${searchTerm}%`]);
+    const queryParams = [];
+
+    if (searchOptions.keyword) {
+      query += ` AND (test_guest_name ILIKE $1 OR reservation_number ILIKE $1 OR guest_phone ILIKE $1)`;
+      queryParams.push(`%${searchOptions.keyword}%`);
+    }
+
+    if (searchOptions.platform) {
+      query += ` AND platform = $${queryParams.length + 1}`;
+      queryParams.push(searchOptions.platform);
+    }
+
+    if (searchOptions.status) {
+      query += ` AND reservation_status = $${queryParams.length + 1}`;
+      queryParams.push(searchOptions.status);
+    }
+
+    if (searchOptions.startDate && searchOptions.endDate) {
+      query += ` AND DATE(test_check_in_date) BETWEEN $${queryParams.length + 1} AND $${
+        queryParams.length + 2
+      }`;
+      queryParams.push(searchOptions.startDate, searchOptions.endDate);
+    }
+
+    query += ` ORDER BY test_check_in_date DESC LIMIT 10`;
+
+    const { rows } = await pool.query(query, queryParams);
 
     if (rows.length === 0) {
       bot.sendMessage(chatId, "검색 결과가 없습니다.");
@@ -308,7 +333,8 @@ async function searchReservation(chatId, searchTerm) {
       message += `   게스트: ${reservation.test_guest_name}\n`;
       message += `   연락처: ${reservation.guest_phone}\n`;
       message += `   체크인: ${reservation.test_check_in_date}\n`;
-      message += `   체크아웃: ${reservation.test_check_out_date}\n\n`;
+      message += `   체크아웃: ${reservation.test_check_out_date}\n`;
+      message += `   예약상태: ${reservation.reservation_status}\n\n`;
     });
 
     bot.sendMessage(chatId, message);
@@ -367,16 +393,64 @@ bot.onText(/\/stats (.+)/, async (msg, match) => {
   }
 });
 
-// 예약 검색
-bot.onText(/\/search (.+)/, async (msg, match) => {
+// 예약 검색 명령어 처리
+bot.onText(/\/search/, async (msg) => {
   const chatId = msg.chat.id;
-  const searchTerm = match[1];
+  const searchOptions = {};
+
+  // 검색 옵션 파싱
+  const commandParts = msg.text.split(" ");
+  for (let i = 1; i < commandParts.length; i++) {
+    const optionParts = commandParts[i].split(":");
+    if (optionParts.length === 2) {
+      const optionKey = optionParts[0].trim();
+      const optionValue = optionParts[1].trim();
+
+      if (optionKey === "keyword") {
+        searchOptions.keyword = optionValue;
+      } else if (optionKey === "platform") {
+        searchOptions.platform = optionValue;
+      } else if (optionKey === "status") {
+        searchOptions.status = optionValue;
+      } else if (optionKey === "startDate") {
+        searchOptions.startDate = optionValue;
+      } else if (optionKey === "endDate") {
+        searchOptions.endDate = optionValue;
+      }
+    }
+  }
+
   try {
-    await searchReservation(chatId, searchTerm);
+    await searchReservation(chatId, searchOptions);
   } catch (error) {
     console.error("예약 검색 중 오류 발생:", error);
     bot.sendMessage(chatId, "예약을 검색하는 중 오류가 발생했습니다.");
   }
+});
+
+// 도움말 명령어 처리
+bot.onText(/\/help/, (msg) => {
+  const chatId = msg.chat.id;
+  const helpMessage = `
+펜션 예약 관리 봇 도움말
+
+/start - 봇 시작 메시지 확인
+/today - 오늘의 예약 정보 조회
+/stats - 플랫폼별 예약 통계 조회
+/stats [period] - 지정한 기간(today, week, month)의 플랫폼별 예약 통계 조회
+/search [options] - 예약 검색
+  옵션:
+    keyword: 검색어 (게스트 이름, 예약번호, 전화번호)
+    platform: 플랫폼명 (에어비앤비, 야놀자 등)
+    status: 예약상태 (예약확정, 예약완료, 예약취소 등)
+    startDate: 검색 시작일 (YYYY-MM-DD)
+    endDate: 검색 종료일 (YYYY-MM-DD)
+  예시: /search keyword:홍길동 platform:에어비앤비 status:예약확정 startDate:2023-06-01 endDate:2023-06-30
+
+/help - 도움말 확인
+`;
+
+  bot.sendMessage(chatId, helpMessage);
 });
 
 // 매일 아침 8시에 자동으로 예약 정보 전송
