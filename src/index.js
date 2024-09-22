@@ -32,6 +32,9 @@ const BOT_CHAT_ID = process.env.BOT_CHAT_ID;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 마지막으로 처리한 예약 ID 저장
+let lastProcessedReservationId = 0;
+
 // 메시지 전송 함수 (재시도 로직 포함)
 async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
@@ -54,13 +57,32 @@ async function checkNewReservations() {
   try {
     const query = `
       SELECT * FROM booking_data
+      WHERE id > $1
       ORDER BY id ASC
     `;
-    const { rows } = await pool.query(query);
+    const { rows } = await pool.query(query, [lastProcessedReservationId]);
 
     if (rows.length > 0) {
       for (const reservation of rows) {
-        let message = `📅 새로운 예약이 등록되었습니다!\n\n`;
+        let statusMessage = "";
+        switch (reservation.reservation_status) {
+          case "예약확정":
+            statusMessage = "📅 새로운 예약이 확정되었습니다!";
+            break;
+          case "예약취소":
+            statusMessage = "❌ 예약이 취소되었습니다.";
+            break;
+          case "예약대기":
+            statusMessage = "⏳ 새로운 예약이 대기 중입니다.";
+            break;
+          case "예약알림":
+            statusMessage = "🔔 새로운 예약 알림이 도착했습니다.";
+            break;
+          default:
+            statusMessage = "❓ 예약 상태를 알 수 없습니다.";
+        }
+
+        let message = `${statusMessage}\n\n`;
         message += `🆕 플랫폼: ${reservation.platform}\n`;
         message += `🏠 숙소: ${reservation.accommodation_name || ""}\n`;
         message += `🔑 객실: ${reservation.test_room_name || ""}\n`;
@@ -80,6 +102,9 @@ async function checkNewReservations() {
         console.log(message);
         await sendMessageWithRetry(BOT_CHAT_ID, message);
         await delay(30000);
+
+        // 마지막으로 처리한 예약 ID 업데이트
+        lastProcessedReservationId = reservation.id;
       }
     }
   } catch (error) {
@@ -95,7 +120,6 @@ async function checkNewReservations() {
     }
   }
 }
-
 // 사용자 인증 함수 (예시)
 async function authenticateUser(chatId) {
   // 실제 구현에서는 데이터베이스에서 사용자 권한을 확인해야 합니다.
