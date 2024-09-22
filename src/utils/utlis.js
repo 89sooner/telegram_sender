@@ -1,5 +1,3 @@
-const bot = require("../bot/bot");
-
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
