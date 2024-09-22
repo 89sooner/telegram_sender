@@ -133,7 +133,7 @@ async function authenticateUser(chatId) {
 }
 
 // 오늘의 예약 정보 조회 및 전송
-async function sendTodayReservations(chatId) {
+async function sendTodayReservations(bot, chatId) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -179,7 +179,7 @@ async function sendTodayReservations(chatId) {
 }
 
 // 플랫폼별 예약 통계 조회 (기간 미지정)
-async function sendReservationStats(chatId) {
+async function sendReservationStats(bot, chatId) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -364,7 +364,7 @@ bot.onText(/\/start/, (msg) => {
 bot.onText(/\/today/, async (msg) => {
   const chatId = msg.chat.id;
   try {
-    await sendTodayReservations(chatId);
+    await sendTodayReservations(bot, chatId);
   } catch (error) {
     console.error("오늘의 예약 정보 조회 중 오류 발생:", error);
     bot.sendMessage(chatId, "오늘의 예약 정보를 가져오는 중 오류가 발생했습니다.");
@@ -375,7 +375,7 @@ bot.onText(/\/today/, async (msg) => {
 bot.onText(/\/stats/, async (msg) => {
   const chatId = msg.chat.id;
   try {
-    await sendReservationStats(chatId);
+    await sendReservationStats(bot, chatId);
   } catch (error) {
     console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
     bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");

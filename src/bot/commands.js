@@ -8,7 +8,7 @@ const { BOT_CHAT_ID } = require("../../config/config");
 
 async function handleTodayCommand(bot, chatId) {
   try {
-    await sendTodayReservations(chatId);
+    await sendTodayReservations(bot, chatId);
   } catch (error) {
     console.error("오늘의 예약 정보 조회 중 오류 발생:", error);
     bot.sendMessage(chatId, "오늘의 예약 정보를 가져오는 중 오류가 발생했습니다.");
