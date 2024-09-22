@@ -32,7 +32,7 @@ const BOT_CHAT_ID = process.env.BOT_CHAT_ID;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // 메시지 전송 함수 (재시도 로직 포함)
-async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
+async function sendMessageWithRetry(bot, chatId, message, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       await bot.sendMessage(chatId, message);
@@ -99,7 +99,7 @@ async function checkNewReservations() {
         }
 
         console.log(message);
-        await sendMessageWithRetry(BOT_CHAT_ID, message);
+        await sendMessageWithRetry(bot, BOT_CHAT_ID, message);
         await delay(30000);
 
         // 메시지 발송 후 message_sent 필드 업데이트
@@ -116,6 +116,7 @@ async function checkNewReservations() {
     // 에러 발생 시 관리자에게 알림
     try {
       await sendMessageWithRetry(
+        bot,
         BOT_CHAT_ID,
         `⚠️ 예약 확인 중 오류가 발생했습니다: ${error.message}`
       );
