@@ -296,7 +296,11 @@ async function searchReservation(chatId, searchOptions) {
     const queryParams = [];
 
     if (searchOptions.keyword) {
-      query += ` AND (test_guest_name ILIKE $1 OR reservation_number ILIKE $1 OR guest_phone ILIKE $1)`;
+      query += ` AND (test_guest_name ILIKE $${
+        queryParams.length + 1
+      } OR reservation_number ILIKE $${queryParams.length + 1} OR guest_phone ILIKE $${
+        queryParams.length + 1
+      })`;
       queryParams.push(`%${searchOptions.keyword}%`);
     }
 
