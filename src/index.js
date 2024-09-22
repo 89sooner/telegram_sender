@@ -177,8 +177,48 @@ async function sendTodayReservations(chatId) {
   }
 }
 
-// 플랫폼별 예약 통계 조회
-async function sendReservationStats(chatId, period) {
+// 플랫폼별 예약 통계 조회 (기간 미지정)
+async function sendReservationStats(chatId) {
+  if (!(await authenticateUser(chatId))) {
+    bot.sendMessage(chatId, "권한이 없습니다.");
+    return;
+  }
+
+  try {
+    const query = `
+      SELECT platform,
+             COUNT(*) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as confirmed_reservations,
+             COUNT(*) FILTER (WHERE reservation_status = '예약취소') as canceled_reservations,
+             SUM(total_price) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as total_revenue
+      FROM booking_data
+      GROUP BY platform
+      ORDER BY confirmed_reservations DESC
+    `;
+
+    const { rows } = await pool.query(query);
+
+    if (rows.length === 0) {
+      bot.sendMessage(chatId, "예약 통계 정보가 없습니다.");
+      return;
+    }
+
+    let message = "📊 플랫폼별 예약 통계:\n\n";
+    rows.forEach((stat) => {
+      message += `${stat.platform}\n`;
+      message += `  예약 확정 수: ${stat.confirmed_reservations}\n`;
+      message += `  예약 취소 수: ${stat.canceled_reservations}\n`;
+      message += `  총 매출: ${Number(stat.total_revenue).toLocaleString()}원\n\n`;
+    });
+
+    bot.sendMessage(chatId, message);
+  } catch (error) {
+    console.error("예약 통계 조회 중 오류 발생:", error);
+    bot.sendMessage(chatId, "예약 통계를 가져오는 중 오류가 발생했습니다.");
+  }
+}
+
+// 플랫폼별 예약 통계 조회 (기간 지정)
+async function sendReservationStatsByPeriod(chatId, period) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
@@ -274,18 +314,6 @@ async function searchReservation(chatId, searchTerm) {
   }
 }
 
-// 플랫폼별 예약 통계 조회 명령어 처리
-bot.onText(/\/stats (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const period = match[1];
-  try {
-    await sendReservationStats(chatId, period);
-  } catch (error) {
-    console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
-    bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
-  }
-});
-
 bot.on("polling_error", (msg) => console.log(msg));
 
 // 봇 명령어 처리
@@ -312,11 +340,23 @@ bot.onText(/\/today/, async (msg) => {
   }
 });
 
-// 플랫폼별 예약 통계 조회
+// 플랫폼별 예약 통계 조회 명령어 처리 (기간 미지정)
 bot.onText(/\/stats/, async (msg) => {
   const chatId = msg.chat.id;
   try {
     await sendReservationStats(chatId);
+  } catch (error) {
+    console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
+    bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
+  }
+});
+
+// 플랫폼별 예약 통계 조회 명령어 처리 (기간 지정)
+bot.onText(/\/stats (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const period = match[1];
+  try {
+    await sendReservationStatsByPeriod(chatId, period);
   } catch (error) {
     console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
     bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
