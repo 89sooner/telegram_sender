@@ -143,7 +143,7 @@ async function sendTodayReservations(chatId) {
     const today = new Date().toISOString().split("T")[0];
     const query = `
       SELECT * FROM booking_data
-      WHERE test_check_in_date::date = $1::date
+      WHERE DATE(created_at) = $1
       ORDER BY platform, check_in_time
     `;
     const { rows } = await pool.query(query, [today]);
@@ -178,33 +178,54 @@ async function sendTodayReservations(chatId) {
 }
 
 // 플랫폼별 예약 통계 조회
-async function sendReservationStats(chatId) {
+async function sendReservationStats(chatId, period) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
     return;
   }
 
   try {
-    const query = `
-      SELECT platform,
-             COUNT(*) as total_reservations,
-             SUM(total_price) as total_revenue
-      FROM booking_data
-      WHERE test_check_in_date::date >= CURRENT_DATE
-      GROUP BY platform
-      ORDER BY total_reservations DESC
-    `;
-    const { rows } = await pool.query(query);
+    let query = "";
+    let startDate = "";
+    let endDate = "";
 
-    if (rows.length === 0) {
-      bot.sendMessage(chatId, "예약 통계 정보가 없습니다.");
+    if (period === "today") {
+      startDate = new Date().toISOString().split("T")[0];
+      endDate = startDate;
+    } else if (period === "week") {
+      startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      endDate = new Date().toISOString().split("T")[0];
+    } else if (period === "month") {
+      startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      endDate = new Date().toISOString().split("T")[0];
+    } else {
+      bot.sendMessage(chatId, "잘못된 기간 옵션입니다. today, week, month 중 하나를 선택해주세요.");
       return;
     }
 
-    let message = "📊 플랫폼별 예약 통계:\n\n";
+    query = `
+      SELECT platform,
+             COUNT(*) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as confirmed_reservations,
+             COUNT(*) FILTER (WHERE reservation_status = '예약취소') as canceled_reservations,
+             SUM(total_price) FILTER (WHERE reservation_status IN ('예약확정', '예약완료')) as total_revenue
+      FROM booking_data
+      WHERE DATE(created_at) BETWEEN $1 AND $2
+      GROUP BY platform
+      ORDER BY confirmed_reservations DESC
+    `;
+
+    const { rows } = await pool.query(query, [startDate, endDate]);
+
+    if (rows.length === 0) {
+      bot.sendMessage(chatId, "선택한 기간에 예약 통계 정보가 없습니다.");
+      return;
+    }
+
+    let message = `📊 플랫폼별 예약 통계 (${startDate} ~ ${endDate}):\n\n`;
     rows.forEach((stat) => {
       message += `${stat.platform}\n`;
-      message += `  예약 수: ${stat.total_reservations}\n`;
+      message += `  예약 확정 수: ${stat.confirmed_reservations}\n`;
+      message += `  예약 취소 수: ${stat.canceled_reservations}\n`;
       message += `  총 매출: ${Number(stat.total_revenue).toLocaleString()}원\n\n`;
     });
 
@@ -215,7 +236,7 @@ async function sendReservationStats(chatId) {
   }
 }
 
-// 예약 검색 기능
+// 예약 검색 기능 (수정사항 없음)
 async function searchReservation(chatId, searchTerm) {
   if (!(await authenticateUser(chatId))) {
     bot.sendMessage(chatId, "권한이 없습니다.");
@@ -252,6 +273,19 @@ async function searchReservation(chatId, searchTerm) {
     bot.sendMessage(chatId, "예약을 검색하는 중 오류가 발생했습니다.");
   }
 }
+
+// 플랫폼별 예약 통계 조회 명령어 처리
+bot.onText(/\/stats (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const period = match[1];
+  try {
+    await sendReservationStats(chatId, period);
+  } catch (error) {
+    console.error("플랫폼별 예약 통계 조회 중 오류 발생:", error);
+    bot.sendMessage(chatId, "플랫폼별 예약 통계를 가져오는 중 오류가 발생했습니다.");
+  }
+});
+
 bot.on("polling_error", (msg) => console.log(msg));
 
 // 봇 명령어 처리
@@ -262,7 +296,7 @@ bot.onText(/\/start/, (msg) => {
     chatId,
     "펜션 예약 관리 봇입니다. 다음 명령어를 사용할 수 있습니다:\n\n" +
       "/today - 오늘의 예약 정보 조회\n" +
-      "/stats - 플랫폼별 예약 통계 조회\n" +
+      "/stats [기간]- 플랫폼별 예약 통계 조회(today, week, month)\n" +
       "/search [검색어] - 예약 검색 (이름, 예약번호, 전화번호)"
   );
 });
