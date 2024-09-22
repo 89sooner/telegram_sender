@@ -32,9 +32,6 @@ const BOT_CHAT_ID = process.env.BOT_CHAT_ID;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 마지막으로 처리한 예약 ID 저장
-let lastProcessedReservationId = 0;
-
 // 메시지 전송 함수 (재시도 로직 포함)
 async function sendMessageWithRetry(chatId, message, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
@@ -57,10 +54,10 @@ async function checkNewReservations() {
   try {
     const query = `
       SELECT * FROM booking_data
-      WHERE id > $1
+      WHERE message_sent = false
       ORDER BY id ASC
     `;
-    const { rows } = await pool.query(query, [lastProcessedReservationId]);
+    const { rows } = await pool.query(query);
 
     if (rows.length > 0) {
       for (const reservation of rows) {
@@ -103,8 +100,13 @@ async function checkNewReservations() {
         await sendMessageWithRetry(BOT_CHAT_ID, message);
         await delay(30000);
 
-        // 마지막으로 처리한 예약 ID 업데이트
-        lastProcessedReservationId = reservation.id;
+        // 메시지 발송 후 message_sent 필드 업데이트
+        const updateQuery = `
+          UPDATE booking_data
+          SET message_sent = true
+          WHERE id = $1
+        `;
+        await pool.query(updateQuery, [reservation.id]);
       }
     }
   } catch (error) {
@@ -120,6 +122,7 @@ async function checkNewReservations() {
     }
   }
 }
+
 // 사용자 인증 함수 (예시)
 async function authenticateUser(chatId) {
   // 실제 구현에서는 데이터베이스에서 사용자 권한을 확인해야 합니다.
