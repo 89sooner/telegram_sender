@@ -48,7 +48,7 @@ bot.onText(/\/stats (.+)/, async (msg, match) => {
 bot.onText(/\/search/, async (msg) => {
   const chatId = msg.chat.id;
   const searchOptions = parseSearchOptions(msg.text);
-  await handleSearchCommand(bot, hatId, searchOptions);
+  await handleSearchCommand(bot, chatId, searchOptions);
 });
 
 bot.onText(/\/help/, (msg) => {
