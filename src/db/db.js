@@ -69,7 +69,7 @@ async function checkNewReservations(bot) {
 
         console.log(message);
         await sendMessageWithRetry(bot, BOT_CHAT_ID, message);
-        await delay(30000);
+        await delay(10000);
 
         // 메시지 발송 후 message_sent 필드 업데이트
         const updateQuery = `
