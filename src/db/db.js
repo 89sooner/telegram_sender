@@ -19,7 +19,7 @@ const pool = new Pool({
 
 // 새로운 예약 확인 및 알림 전송
 async function checkNewReservations(bot) {
-  console.log("check telegram message queue");
+  console.log("[CHECK] telegram outbound message queue");
   try {
     const query = `
       SELECT * FROM booking_data
