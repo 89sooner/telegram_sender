@@ -74,7 +74,7 @@ cron.schedule("0 8 * * *", () => {
   handleTodayCommand(bot, BOT_CHAT_ID);
 });
 
-cron.schedule("*/1 * * * *", () => {
+cron.schedule("*/30 * * * * *", () => {
   checkNewReservations(bot);
 });
 
