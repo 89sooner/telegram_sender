@@ -24,6 +24,7 @@ async function checkNewReservations(bot) {
     const query = `
       SELECT * FROM booking_data
       WHERE message_sent = false
+        AND reservation_status in ('예약대기', '예약확정', '예약취소')
       ORDER BY id ASC
     `;
     const { rows } = await pool.query(query);
@@ -111,6 +112,7 @@ async function sendTodayReservations(bot, chatId) {
     const query = `
       SELECT * FROM booking_data
       WHERE DATE(created_at) = $1
+        AND reservation_status in ('예약대기', '예약확정', '예약취소')
       ORDER BY platform, check_in_time
     `;
     const { rows } = await pool.query(query, [today]);
