@@ -22,7 +22,7 @@ async function checkNewReservations(bot) {
   console.log("[CHECK] telegram outbound message queue");
   try {
     const query = `
-      SELECT * FROM booking_data
+      SELECT * FROM reservations
       WHERE message_sent = false
         AND reservation_status in ('예약대기', '예약확정', '예약취소')
       ORDER BY id ASC
@@ -58,13 +58,13 @@ async function checkNewReservations(bot) {
         let message = `${statusMessage}\n\n`;
         message += `🆕 플랫폼: ${reservation.platform}\n`;
         message += `🏠 숙소: ${reservation.accommodation_name || ""}\n`;
-        message += `🔑 객실: ${reservation.test_room_name || ""}\n`;
-        message += `👤 게스트: ${reservation.test_guest_name}\n`;
+        message += `🔑 객실: ${reservation.final_room_name || ""}\n`;
+        message += `👤 게스트: ${reservation.final_guest_name}\n`;
         message += `📞 연락처: ${reservation.guest_phone || ""}\n`;
-        message += `🕒 체크인: ${reservation.test_check_in_date} ${
+        message += `🕒 체크인: ${reservation.final_check_in_date} ${
           reservation.check_in_time || ""
         }\n`;
-        message += `🕒 체크아웃: ${reservation.test_check_out_date} ${
+        message += `🕒 체크아웃: ${reservation.final_check_out_date} ${
           reservation.check_out_time || ""
         }\n`;
         message += `💰 결제금액: ${Number(reservation.total_price).toLocaleString()}원\n`;
@@ -78,7 +78,7 @@ async function checkNewReservations(bot) {
 
         // 메시지 발송 후 message_sent 필드 업데이트
         const updateQuery = `
-          UPDATE booking_data
+          UPDATE reservations
           SET message_sent = true
           WHERE id = $1
         `;
@@ -110,7 +110,7 @@ async function sendTodayReservations(bot, chatId) {
   try {
     const today = new Date().toISOString().split("T")[0];
     const query = `
-      SELECT * FROM booking_data
+      SELECT * FROM reservations
       WHERE DATE(created_at) = $1
         AND reservation_status in ('예약대기', '예약확정', '예약취소')
       ORDER BY platform, check_in_time
@@ -127,10 +127,10 @@ async function sendTodayReservations(bot, chatId) {
       message += `${index + 1}. ${reservation.platform} 예약\n`;
       message += `   ✔️예약상태: ${reservation.reservation_status || ""}\n`;
       message += `   🏠 숙소: ${reservation.accommodation_name || ""}\n`;
-      message += `   🔑 객실: ${reservation.test_room_name || ""}\n`;
-      message += `   👤 게스트: ${reservation.test_guest_name}\n`;
+      message += `   🔑 객실: ${reservation.final_room_name || ""}\n`;
+      message += `   👤 게스트: ${reservation.final_guest_name}\n`;
       message += `   📞 연락처: ${reservation.guest_phone || ""}\n`;
-      message += `   🕒 체크인: ${reservation.test_check_in_date} ${
+      message += `   🕒 체크인: ${reservation.final_check_in_date} ${
         reservation.check_in_time || ""
       }\n`;
       message += `   💰 결제금액: ${Number(reservation.total_price).toLocaleString()}원\n`;
@@ -162,7 +162,7 @@ async function sendReservationStats(bot, chatId) {
              COALESCE(SUM(CASE WHEN reservation_status IN ('예약확정', '예약완료') THEN total_price
                                WHEN reservation_status = '예약취소' THEN -total_price
                                ELSE 0 END), 0) as total_revenue
-      FROM booking_data
+      FROM reservations
       GROUP BY platform
       ORDER BY confirmed_reservations DESC
     `;
@@ -222,7 +222,7 @@ async function sendReservationStatsByPeriod(bot, chatId, period) {
              COALESCE(SUM(CASE WHEN reservation_status IN ('예약확정', '예약완료') THEN total_price
                                WHEN reservation_status = '예약취소' THEN -total_price
                                ELSE 0 END), 0) as total_revenue
-      FROM booking_data
+      FROM reservations
       WHERE DATE(created_at) BETWEEN $1 AND $2
       GROUP BY platform
       ORDER BY confirmed_reservations DESC
@@ -259,13 +259,13 @@ async function searchReservation(bot, chatId, searchOptions) {
 
   try {
     let query = `
-      SELECT * FROM booking_data
+      SELECT * FROM reservations
       WHERE 1=1
     `;
     const queryParams = [];
 
     if (searchOptions.keyword) {
-      query += ` AND (test_guest_name ILIKE $${
+      query += ` AND (final_guest_name ILIKE $${
         queryParams.length + 1
       } OR reservation_number ILIKE $${queryParams.length + 1} OR guest_phone ILIKE $${
         queryParams.length + 1
@@ -284,13 +284,13 @@ async function searchReservation(bot, chatId, searchOptions) {
     }
 
     if (searchOptions.startDate && searchOptions.endDate) {
-      query += ` AND DATE(test_check_in_date) BETWEEN $${queryParams.length + 1} AND $${
+      query += ` AND DATE(final_check_in_date) BETWEEN $${queryParams.length + 1} AND $${
         queryParams.length + 2
       }`;
       queryParams.push(searchOptions.startDate, searchOptions.endDate);
     }
 
-    query += ` ORDER BY test_check_in_date DESC LIMIT 10`;
+    query += ` ORDER BY final_check_in_date DESC LIMIT 10`;
 
     const { rows } = await pool.query(query, queryParams);
 
@@ -303,10 +303,10 @@ async function searchReservation(bot, chatId, searchOptions) {
     rows.forEach((reservation, index) => {
       message += `${index + 1}. ${reservation.platform}\n`;
       message += `   예약번호: ${reservation.reservation_number}\n`;
-      message += `   게스트: ${reservation.test_guest_name}\n`;
+      message += `   게스트: ${reservation.final_guest_name}\n`;
       message += `   연락처: ${reservation.guest_phone}\n`;
-      message += `   체크인: ${reservation.test_check_in_date}\n`;
-      message += `   체크아웃: ${reservation.test_check_out_date}\n`;
+      message += `   체크인: ${reservation.final_check_in_date}\n`;
+      message += `   체크아웃: ${reservation.final_check_out_date}\n`;
       message += `   예약상태: ${reservation.reservation_status}\n\n`;
     });
 
