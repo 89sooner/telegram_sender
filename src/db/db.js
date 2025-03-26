@@ -42,10 +42,6 @@ function formatReservationMessage(reservation, isDetailed = true) {
       reservation.check_out_time || ""
     }\n`;
     message += `💰 결제금액: ${formatCurrency(reservation.total_price)}\n`;
-
-    if (reservation.request) {
-      message += `💬 요청사항: ${reservation.request}\n`;
-    }
   } else {
     // 간략 정보
     message += `🕒 체크인: ${reservation.final_check_in_date}\n`;
