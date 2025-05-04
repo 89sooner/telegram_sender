@@ -148,7 +148,7 @@ cron.schedule("*/30 * * * * *", () => {
 
 // 매일 아침 8시에 당일 예약 알림
 cron.schedule(
-  "0 8 * * *",
+  "0 0 * * *",
   async () => {
     logger.info("오늘의 예약 정보 자동 발송 시작");
     try {
@@ -169,7 +169,7 @@ cron.schedule(
   },
   {
     timezone: "Asia/Seoul", // 한국 시간 기준
-  },
+  }
 );
 
 // 모든 메시지 로깅 및 일반 메시지 처리
@@ -182,7 +182,9 @@ bot.on("message", (msg) => {
     if (messageText && !messageText.startsWith("/")) {
       // 로깅은 유지
       const sender = msg.from.username || msg.from.first_name || "Unknown";
-      logger.info(`새 메시지 수신 - 채팅 ID: ${chatId}, 보낸 사람: ${sender}, 내용: ${messageText}`);
+      logger.info(
+        `새 메시지 수신 - 채팅 ID: ${chatId}, 보낸 사람: ${sender}, 내용: ${messageText}`
+      );
     }
     return; // 명령어나 빈 메시지는 여기서 처리 종료
   }
@@ -194,7 +196,7 @@ bot.on("message", (msg) => {
   // 일반 메시지에 대한 응답 (기존 도움말 안내 대신)
   bot.sendMessage(
     chatId,
-    "안녕하세요! 펜션 예약 관리 봇입니다. 사용 가능한 명령어 목록을 보려면 /help 를 입력해주세요.",
+    "안녕하세요! 펜션 예약 관리 봇입니다. 사용 가능한 명령어 목록을 보려면 /help 를 입력해주세요."
   );
 });
 
